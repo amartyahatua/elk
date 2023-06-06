@@ -43,7 +43,7 @@ col_name = [['Set', 'Process',\
             'Clean Sp Precision', 'Clean Sp Recall', 'Clean Sp F1']]
 
 
-def XGB():
+def RandomForest():
     final_result = pd.DataFrame()
     for turn in range(1):
         for set in range(sets):
@@ -211,7 +211,7 @@ def XGB():
                 result = pd.DataFrame([result])
                 final_result = pd.concat([final_result, result], axis=0)
                 print('Set: {} and Process: {} done'.format(set+1, process+1))
-    final_result.to_csv('../../data/XGB_TFIDF_result.csv', index=False)
+    final_result.to_csv('../../data/XGB_TFIDF_Cleaning_Result.csv', index=False)
 
 
-XGB()
+RandomForest()

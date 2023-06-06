@@ -1,28 +1,18 @@
-import  pandas as pd
+import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import recall_score
-from sklearn.metrics import precision_score
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import f1_score
-import arraygan.git.code.ml_model.dataconfig as config
 import os
 import pickle
-
 from sklearn.decomposition import IncrementalPCA
-#import spacy_universal_sentence_encoder
-from sklearn.model_selection import KFold
-from sklearn.model_selection import cross_val_score
 from sklearn.metrics import classification_report
-import spacy_universal_sentence_encoder
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 
-from sklearn.feature_extraction.text import TfidfVectorizer,CountVectorizer
 
 # load one of the models: ['en_use_md', 'en_use_lg', 'xx_use_md', 'xx_use_lg']
-#Universal sentence encoder
-nlp = spacy_universal_sentence_encoder.load_model('en_use_lg')
+# Universal sentence encoder
+# nlp = spacy_universal_sentence_encoder.load_model('en_use_lg')
 
-#BERT Sentence encoder
-#nlp = SentenceTransformer('all-MiniLM-L6-v2')
+# BERT Sentence encoder
+# nlp = SentenceTransformer('all-MiniLM-L6-v2')
 
 # get two documents
 # doc_1 =
@@ -35,122 +25,213 @@ def apply_pca(data):
     return principalComponents
 
 
+sets = 5
+processes = 3
+
+data_path_clean = '../../data/clean'
+data_path_preprocess = '../../data/preprocessing'
+
+col_name = [['Set', 'Process', \
+             'GT Precision', 'GT Recall', 'GT F1', \
+             'Clean Precision', 'Clean Recall', 'Clean F1', \
+             'Clean No Sp Precision', 'Clean No Sp Recall', 'Clean No Sp F1', \
+             'Clean Sp Precision', 'Clean Sp Recall', 'Clean Sp F1']]
+
+
 def RandomForest():
-    for turn in range(5):
-        for proecess in range(1, 16):
-            df = pd.read_csv('../../data/l-mask/set_{}/FEVER_Train.csv'.format(str(proecess)))
-            df_test_1 = pd.read_csv('../../data/l-mask/set_{}/FEVER_1_Test.csv'.format(str(proecess)))
+    final_result = pd.DataFrame()
+    for turn in range(1):
+        for set in range(sets):
+            for process in range(processes):
+                result = []
+                result.append(process + 1)
+                result.append(set + 1)
+                df_train = pd.read_csv(
+                    os.path.join(data_path_clean, 'fever_train', 'FEVER_Train_{}_{}.csv'.format(set + 1, process + 1)))
+                df_test_1 = pd.read_csv(os.path.join(data_path_clean, 'fever_1_test',
+                                                     'FEVER_1_Test_{}_{}.csv'.format(set + 1, process + 1)))
+                df_test_2 = pd.read_csv(os.path.join(data_path_clean, 'fever_2_test',
+                                                     'FEVER_2_Test_{}_{}.csv'.format(set + 1, process + 1)))
 
-            df_val = df
+                df_claims = df_train['claims']
+                df_claims_clean = df_train['claims_clean']
+                df_claims_clean_no_space = df_train['cleaning_no_space']
+                df_claims_clean_space = df_train['cleaning_space']
+                df_classes = df_train['class']
 
-            df_claim = df['claims'].to_numpy()
-            df_class = df['class'].to_numpy()
+                df_test_1_claims = df_test_1['claims']
+                df_test_1_claims_clean = df_test_1['claims_clean']
+                df_test_1_claims_clean_no_space = df_test_1['cleaning_no_space']
+                df_test_1_claims_clean_space = df_test_1['cleaning_space']
+                df_test_1_classes = df_test_1['classes']
 
-            X_test_1 = df_test_1['claims'].to_numpy()
-            y_test_1 = df_test_1['classes'].to_numpy()
+                df_test_2_claims = df_test_2['claims']
+                df_test_2_claims_clean = df_test_2['claims_clean']
+                df_test_2_claims_clean_no_space = df_test_2['cleaning_no_space']
+                df_test_2_claims_clean_space = df_test_2['cleaning_space']
+                df_test_2_classes = df_test_2['classes']
 
-            print(type(df_claim))
-            print(df_class.shape)
-            print(X_test_1.shape)
-            print(y_test_1.shape)
+                # Ground truth
+                tfIdfVectorizer = TfidfVectorizer(lowercase=False)
 
+                tfidf_train_vectors = tfIdfVectorizer.fit_transform(df_claims)
+                tfidf_test_vectors_1 = tfIdfVectorizer.transform(df_test_1_claims)
+                tfidf_test_vectors_2 = tfIdfVectorizer.transform(df_test_2_claims)
 
+                clf = RandomForestClassifier(n_estimators=50, criterion='gini', max_depth=None, min_samples_split=10,
+                                             min_samples_leaf=10, min_weight_fraction_leaf=0.0, max_features='sqrt',
+                                             max_leaf_nodes=None,
+                                             min_impurity_decrease=0.0, bootstrap=True, oob_score=False, n_jobs=None,
+                                             random_state=None,
+                                             verbose=0, warm_start=False, class_weight=None, ccp_alpha=0.0,
+                                             max_samples=None)
 
-            #df_claim = df_claim.values.tolist()
+                model = clf.fit(tfidf_train_vectors, df_classes)
+                filename = '../model/TFIDF_RF_Cleaning_model_process_{}_turn_{}_GT.pkl'.format(str(set + 1), str(process + 1))
+                pickle.dump(model, open(filename, 'wb'))
+                predicted_fever_1 = model.predict(tfidf_test_vectors_1)
+                predicted_fever_2 = model.predict(tfidf_test_vectors_2)
 
+                classification_score_test_1 = classification_report(df_test_1_classes, predicted_fever_1, digits=4)
+                precision_test_1 = classification_score_test_1.split('\n')[-2].split()[2:-1][0]
+                recall_test_1 = classification_score_test_1.split('\n')[-2].split()[2:-1][1]
+                f1_score_test_1 = classification_score_test_1.split('\n')[-2].split()[2:-1][2]
 
-            df_claim_encode = []
-            df_evidence_encode = []
+                result.append(precision_test_1)
+                result.append(recall_test_1)
+                result.append(f1_score_test_1)
 
+                classification_score_test_2 = classification_report(df_test_2_classes, predicted_fever_2, digits=4)
+                precision_test_2 = classification_score_test_2.split('\n')[-2].split()[2:-1][0]
+                recall_test_2 = classification_score_test_2.split('\n')[-2].split()[2:-1][1]
+                f1_score_test_2 = classification_score_test_2.split('\n')[-2].split()[2:-1][2]
 
-            # X_test_1 = X_test_1.values.tolist()
-            # y_test_1 = y_test_1.values.tolist()
+                result.append(precision_test_2)
+                result.append(recall_test_2)
+                result.append(f1_score_test_2)
 
+                # Clean data
+                tfIdfVectorizer = TfidfVectorizer(lowercase=False)
 
+                tfidf_train_vectors = tfIdfVectorizer.fit_transform(df_claims_clean)
+                tfidf_test_vectors_1 = tfIdfVectorizer.transform(df_test_1_claims_clean)
+                tfidf_test_vectors_2 = tfIdfVectorizer.transform(df_test_2_claims_clean)
 
-            for claim in df_claim:
-                temp_all_dim = nlp(claim)
-                df_claim_encode.append(temp_all_dim.vector)
-            df_claim_encode = apply_pca(df_claim_encode)
+                clf = RandomForestClassifier(n_estimators=50, criterion='gini', max_depth=None, min_samples_split=10,
+                                             min_samples_leaf=10, min_weight_fraction_leaf=0.0, max_features='sqrt',
+                                             max_leaf_nodes=None,
+                                             min_impurity_decrease=0.0, bootstrap=True, oob_score=False, n_jobs=None,
+                                             random_state=None,
+                                             verbose=0, warm_start=False, class_weight=None, ccp_alpha=0.0,
+                                             max_samples=None)
+                model = clf.fit(tfidf_train_vectors, df_classes)
+                predicted_fever_1 = model.predict(tfidf_test_vectors_1)
+                predicted_fever_2 = model.predict(tfidf_test_vectors_2)
 
+                filename = '../model/TFIDF_RF_Cleaning_model_process_{}_turn_{}_Cleaning.pkl'.format(str(set + 1),
+                                                                                            str(process + 1))
+                pickle.dump(model, open(filename, 'wb'))
 
-            X_test_encode = []
-            for test_data in X_test_1:
-                temp_all_dim = nlp(test_data)
-                X_test_encode.append(temp_all_dim.vector)
-            X_test_encode = apply_pca(X_test_encode)
+                classification_score_test_1 = classification_report(df_test_1_classes, predicted_fever_1, digits=4)
+                precision_test_1 = classification_score_test_1.split('\n')[-2].split()[2:-1][0]
+                recall_test_1 = classification_score_test_1.split('\n')[-2].split()[2:-1][1]
+                f1_score_test_1 = classification_score_test_1.split('\n')[-2].split()[2:-1][2]
 
+                result.append(precision_test_1)
+                result.append(recall_test_1)
+                result.append(f1_score_test_1)
 
-            # tfIdfVectorizer = TfidfVectorizer()
-            #
-            # tfidf_train_vectors = tfIdfVectorizer.fit_transform(df_claim)
-            # print(tfidf_train_vectors.shape)
-            # tfidf_test_vectors = tfIdfVectorizer.transform(X_test_1)
-            # print(tfidf_test_vectors.shape)
+                classification_score_test_2 = classification_report(df_test_2_classes, predicted_fever_2, digits=4)
+                precision_test_2 = classification_score_test_2.split('\n')[-2].split()[2:-1][0]
+                recall_test_2 = classification_score_test_2.split('\n')[-2].split()[2:-1][1]
+                f1_score_test_2 = classification_score_test_2.split('\n')[-2].split()[2:-1][2]
 
-            # df_claim_evidence_encode = pd.DataFrame(df_claim_encode)
-            # X_test_encode = pd.DataFrame(X_test_encode)
+                result.append(precision_test_2)
+                result.append(recall_test_2)
+                result.append(f1_score_test_2)
 
-            clf = RandomForestClassifier(n_estimators=50, criterion='gini', max_depth=None, min_samples_split=10,
-                                         min_samples_leaf=10, min_weight_fraction_leaf=0.0, max_features='sqrt', max_leaf_nodes=None,
-                                         min_impurity_decrease=0.0, bootstrap=True, oob_score=False, n_jobs=None, random_state=None,
-                                         verbose=0, warm_start=False, class_weight=None, ccp_alpha=0.0, max_samples=None)
-            #clf = RandomForestClassifier()
+                # Clean no space data
+                tfIdfVectorizer = TfidfVectorizer(lowercase=False)
 
-            print("Model fitting started ....")
+                tfidf_train_vectors = tfIdfVectorizer.fit_transform(df_claims_clean_no_space)
+                tfidf_test_vectors_1 = tfIdfVectorizer.transform(df_test_1_claims_clean_no_space)
+                tfidf_test_vectors_2 = tfIdfVectorizer.transform(df_test_2_claims_clean_no_space)
 
-            # scores = cross_val_score(clf, df_claim_evidence_encode, df_class, cv = 5, scoring = 'f1_macro')
-            # print('Scores: ',scores)
+                clf = RandomForestClassifier(n_estimators=50, criterion='gini', max_depth=None, min_samples_split=10,
+                                             min_samples_leaf=10, min_weight_fraction_leaf=0.0, max_features='sqrt',
+                                             max_leaf_nodes=None,
+                                             min_impurity_decrease=0.0, bootstrap=True, oob_score=False, n_jobs=None,
+                                             random_state=None,
+                                             verbose=0, warm_start=False, class_weight=None, ccp_alpha=0.0,
+                                             max_samples=None)
+                model = clf.fit(tfidf_train_vectors, df_classes)
+                predicted_fever_1 = model.predict(tfidf_test_vectors_1)
+                predicted_fever_2 = model.predict(tfidf_test_vectors_2)
 
-            model = clf.fit(df_claim_encode, df_class)
-            print('Training done')
-            filename = '../model/tfidf_random_forest_model_process_{}_turn_{}.pkl'.format(str(proecess),str(turn))
-            pickle.dump(model, open(filename, 'wb'))
+                filename = '../model/TFIDF_RF_Cleaning_model_process_{}_turn_{}_Clean_No_Space.pkl'.format(str(set + 1),
+                                                                                                  str(process + 1))
+                pickle.dump(model, open(filename, 'wb'))
 
-            predict_train = model.predict(df_claim_encode)
-            f1_train = f1_score(df_class, predict_train)
+                classification_score_test_1 = classification_report(df_test_1_classes, predicted_fever_1, digits=4)
+                precision_test_1 = classification_score_test_1.split('\n')[-2].split()[2:-1][0]
+                recall_test_1 = classification_score_test_1.split('\n')[-2].split()[2:-1][1]
+                f1_score_test_1 = classification_score_test_1.split('\n')[-2].split()[2:-1][2]
 
+                result.append(precision_test_1)
+                result.append(recall_test_1)
+                result.append(f1_score_test_1)
 
-            svc_predictions = model.predict(X_test_encode)
+                classification_score_test_2 = classification_report(df_test_2_classes, predicted_fever_2, digits=4)
+                precision_test_2 = classification_score_test_2.split('\n')[-2].split()[2:-1][0]
+                recall_test_2 = classification_score_test_2.split('\n')[-2].split()[2:-1][1]
+                f1_score_test_2 = classification_score_test_2.split('\n')[-2].split()[2:-1][2]
 
-            precision_metric_micro = precision_score(y_test_1, svc_predictions)
-            recall_metric_micro = recall_score(y_test_1, svc_predictions)
-            accuracy_metric_micro = accuracy_score(y_test_1, svc_predictions)
-            f1_metric_micro = f1_score(y_test_1, svc_predictions)
-            classification_score = classification_report(y_test_1, svc_predictions, digits=4)
+                result.append(precision_test_2)
+                result.append(recall_test_2)
+                result.append(f1_score_test_2)
 
-            if (os.path.exists(config.RF_NORMALIZED_OUT_PUT_FILE)):
-                f = open(config.RF_NORMALIZED_OUT_PUT_FILE, "a")
-                f.write('For Test 1 linguist enrichment using Sentence BERT 20th Feb')
-            else:
-                f = open(config.RF_NORMALIZED_OUT_PUT_FILE, "a")
-            print(config.RF_NORMALIZED_OUT_PUT_FILE)
-            f.write('\n\n')
-            f.write('Turn: '+ str(turn))
-            f.write('   Process: '+str(proecess))
-            f.write('\n')
-            f.write("precision_macro:" + str(precision_metric_micro))
-            f.write('\n')
-            f.write(" recall_macro: " + str(recall_metric_micro))
-            f.write('\n')
-            f.write(" Accuracy: " + str(accuracy_metric_micro))
-            f.write('\n')
-            f.write(" f1_macro: " + str(f1_metric_micro))
-            f.write('\n')
-            f.write(" Classification score: " + str(classification_score))
-            f.write('\n')
-            print('Done Turn: {}, Process: {}'.format(turn, proecess))
-            f.close()
+                # Clean with space data
+                tfIdfVectorizer = TfidfVectorizer(lowercase=False)
 
-            print("f1 train", f1_train)
-            print("precision_metric micro", precision_metric_micro)
-            print("recall_metric micro", recall_metric_micro)
-            print("accuracy_metric micro", accuracy_metric_micro)
-            print("f1_metric micro", f1_metric_micro)
-            print(classification_score)
-            print('Done Turn: {}, Process: {}'.format(turn, proecess))
+                tfidf_train_vectors = tfIdfVectorizer.fit_transform(df_claims_clean_space)
+                tfidf_test_vectors_1 = tfIdfVectorizer.transform(df_test_1_claims_clean_space)
+                tfidf_test_vectors_2 = tfIdfVectorizer.transform(df_test_2_claims_clean_space)
+
+                clf = RandomForestClassifier(n_estimators=50, criterion='gini', max_depth=None, min_samples_split=10,
+                                             min_samples_leaf=10, min_weight_fraction_leaf=0.0, max_features='sqrt',
+                                             max_leaf_nodes=None,
+                                             min_impurity_decrease=0.0, bootstrap=True, oob_score=False, n_jobs=None,
+                                             random_state=None,
+                                             verbose=0, warm_start=False, class_weight=None, ccp_alpha=0.0,
+                                             max_samples=None)
+
+                model = clf.fit(tfidf_train_vectors, df_classes)
+                predicted_fever_1 = model.predict(tfidf_test_vectors_1)
+                predicted_fever_2 = model.predict(tfidf_test_vectors_2)
+                filename = '../model/TFIDF_RF_Cleaning_model_process_{}_turn_{}_Clean_Space.pkl'.format(str(set + 1),
+                                                                                               str(process + 1))
+                pickle.dump(model, open(filename, 'wb'))
+                classification_score_test_1 = classification_report(df_test_1_classes, predicted_fever_1, digits=4)
+                precision_test_1 = classification_score_test_1.split('\n')[-2].split()[2:-1][0]
+                recall_test_1 = classification_score_test_1.split('\n')[-2].split()[2:-1][1]
+                f1_score_test_1 = classification_score_test_1.split('\n')[-2].split()[2:-1][2]
+
+                result.append(precision_test_1)
+                result.append(recall_test_1)
+                result.append(f1_score_test_1)
+
+                classification_score_test_2 = classification_report(df_test_2_classes, predicted_fever_2, digits=4)
+                precision_test_2 = classification_score_test_2.split('\n')[-2].split()[2:-1][0]
+                recall_test_2 = classification_score_test_2.split('\n')[-2].split()[2:-1][1]
+                f1_score_test_2 = classification_score_test_2.split('\n')[-2].split()[2:-1][2]
+
+                result.append(precision_test_2)
+                result.append(recall_test_2)
+                result.append(f1_score_test_2)
+                result = pd.DataFrame([result])
+                final_result = pd.concat([final_result, result], axis=0)
+                print('Set: {} and Process: {} done'.format(set + 1, process + 1))
+    final_result.to_csv('../../data/RF_TFIDF_Cleaning_Result.csv', index=False)
+
 
 RandomForest()
-
-
-
