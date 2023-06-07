@@ -72,11 +72,11 @@ def RandomForest():
                 df_test_2_classes = df_test_2['classes']
 
                 # Ground truth
-                tfIdfVectorizer = TfidfVectorizer(lowercase=False)
+                countVectorizer = CountVectorizer(lowercase=False)
 
-                tfidf_train_vectors = tfIdfVectorizer.fit_transform(df_claims)
-                tfidf_test_vectors_1 = tfIdfVectorizer.transform(df_test_1_claims)
-                tfidf_test_vectors_2 = tfIdfVectorizer.transform(df_test_2_claims)
+                tfidf_train_vectors = countVectorizer.fit_transform(df_claims)
+                tfidf_test_vectors_1 = countVectorizer.transform(df_test_1_claims)
+                tfidf_test_vectors_2 = countVectorizer.transform(df_test_2_claims)
 
                 clf = RandomForestClassifier(n_estimators=50, criterion='gini', max_depth=None, min_samples_split=10,
                                              min_samples_leaf=10, min_weight_fraction_leaf=0.0, max_features='sqrt',
@@ -111,11 +111,11 @@ def RandomForest():
                 result.append(f1_score_test_2)
 
                 # Clean data
-                tfIdfVectorizer = TfidfVectorizer(lowercase=False)
+                countVectorizer = CountVectorizer(lowercase=False)
 
-                tfidf_train_vectors = tfIdfVectorizer.fit_transform(df_claims_clean)
-                tfidf_test_vectors_1 = tfIdfVectorizer.transform(df_test_1_claims_clean)
-                tfidf_test_vectors_2 = tfIdfVectorizer.transform(df_test_2_claims_clean)
+                tfidf_train_vectors = countVectorizer.fit_transform(df_claims)
+                tfidf_test_vectors_1 = countVectorizer.transform(df_test_1_claims)
+                tfidf_test_vectors_2 = countVectorizer.transform(df_test_2_claims)
 
                 clf = RandomForestClassifier(n_estimators=50, criterion='gini', max_depth=None, min_samples_split=10,
                                              min_samples_leaf=10, min_weight_fraction_leaf=0.0, max_features='sqrt',
@@ -151,11 +151,11 @@ def RandomForest():
                 result.append(f1_score_test_2)
 
                 # Clean no space data
-                tfIdfVectorizer = TfidfVectorizer(lowercase=False)
+                countVectorizer = CountVectorizer(lowercase=False)
 
-                tfidf_train_vectors = tfIdfVectorizer.fit_transform(df_claims_clean_no_space)
-                tfidf_test_vectors_1 = tfIdfVectorizer.transform(df_test_1_claims_clean_no_space)
-                tfidf_test_vectors_2 = tfIdfVectorizer.transform(df_test_2_claims_clean_no_space)
+                tfidf_train_vectors = countVectorizer.fit_transform(df_claims)
+                tfidf_test_vectors_1 = countVectorizer.transform(df_test_1_claims)
+                tfidf_test_vectors_2 = countVectorizer.transform(df_test_2_claims)
 
                 clf = RandomForestClassifier(n_estimators=50, criterion='gini', max_depth=None, min_samples_split=10,
                                              min_samples_leaf=10, min_weight_fraction_leaf=0.0, max_features='sqrt',
@@ -191,11 +191,11 @@ def RandomForest():
                 result.append(f1_score_test_2)
 
                 # Clean with space data
-                tfIdfVectorizer = TfidfVectorizer(lowercase=False)
+                countVectorizer = CountVectorizer(lowercase=False)
 
-                tfidf_train_vectors = tfIdfVectorizer.fit_transform(df_claims_clean_space)
-                tfidf_test_vectors_1 = tfIdfVectorizer.transform(df_test_1_claims_clean_space)
-                tfidf_test_vectors_2 = tfIdfVectorizer.transform(df_test_2_claims_clean_space)
+                tfidf_train_vectors = countVectorizer.fit_transform(df_claims)
+                tfidf_test_vectors_1 = countVectorizer.transform(df_test_1_claims)
+                tfidf_test_vectors_2 = countVectorizer.transform(df_test_2_claims)
 
                 clf = RandomForestClassifier(n_estimators=50, criterion='gini', max_depth=None, min_samples_split=10,
                                              min_samples_leaf=10, min_weight_fraction_leaf=0.0, max_features='sqrt',
@@ -231,7 +231,7 @@ def RandomForest():
                 result = pd.DataFrame([result])
                 final_result = pd.concat([final_result, result], axis=0)
                 print('Set: {} and Process: {} done'.format(set + 1, process + 1))
-    final_result.to_csv('../../data/RF_TFIDF_Cleaning_Result.csv', index=False)
+    final_result.to_csv('../../data/RF_BoW_Cleaning_Result.csv', index=False)
 
 
 RandomForest()
